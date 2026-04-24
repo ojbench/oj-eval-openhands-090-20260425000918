@@ -1,0 +1,11 @@
+# Build artifacts
+*.o
+*.out
+*.exe
+
+# Local tests
+test_local
+test_local.cpp
+
+# Others
+.DS_Store
