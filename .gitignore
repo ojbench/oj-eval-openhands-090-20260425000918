@@ -9,3 +9,6 @@ test_local.cpp
 
 # Others
 .DS_Store
+
+# Provided headers (not needed in repo)
+fraction.hpp
