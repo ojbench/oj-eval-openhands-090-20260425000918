@@ -135,35 +135,28 @@ private:
     static std::vector<fraction> solve_linear(matrix A, const std::vector<fraction> &b) {
         int n = A.rows();
         if (n != A.cols() || (int)b.size() != n) throw matrix_error();
-        // Build augmented matrix
         std::vector<std::vector<fraction>> a(n, std::vector<fraction>(n + 1));
         for (int i = 0; i < n; ++i) {
             for (int j = 0; j < n; ++j) a[i][j] = A(i+1, j);
             a[i][n] = b[i];
         }
-        int row = 0;
-        for (int col = 0; col < n && row < n; ++col) {
-            int piv = row;
+        for (int col = 0; col < n; ++col) {
+            int piv = col;
             while (piv < n && a[piv][col] == fraction(0)) ++piv;
-            if (piv == n) continue; // no pivot in this column
-            if (piv != row) std::swap(a[piv], a[row]);
-            fraction pivval = a[row][col];
-            // normalize row to make pivot 1 (not necessary but keeps numbers smaller sometimes)
-            for (int c = col; c <= n; ++c) a[row][c] = a[row][c] / pivval;
-            // eliminate all other rows
-            for (int r = 0; r < n; ++r) if (r != row && a[r][col] == fraction(0) == false) {
-                fraction factor = a[r][col];
-                for (int c = col; c <= n; ++c) a[r][c] = a[r][c] - factor * a[row][c];
+            if (piv == n) throw matrix_error();
+            if (piv != col) std::swap(a[piv], a[col]);
+            fraction pivval = a[col][col];
+            for (int r = col + 1; r < n; ++r) if (!(a[r][col] == fraction(0))) {
+                fraction factor = a[r][col] / pivval;
+                for (int c = col; c <= n; ++c) a[r][c] = a[r][c] - factor * a[col][c];
             }
-            ++row;
         }
-        // Extract solution (matrix assumed nonsingular by problem guarantee)
         std::vector<fraction> x(n, fraction(0));
-        for (int i = 0; i < n; ++i) {
-            int pivcol = -1;
-            for (int j = 0; j < n; ++j) if (!(a[i][j] == fraction(0))) { pivcol = j; break; }
-            if (pivcol == -1) throw matrix_error();
-            x[pivcol] = a[i][n];
+        for (int i = n - 1; i >= 0; --i) {
+            fraction sum(0);
+            for (int j = i + 1; j < n; ++j) sum = sum + a[i][j] * x[j];
+            fraction rhs = a[i][n] - sum;
+            x[i] = rhs / a[i][i];
         }
         return x;
     }
@@ -215,17 +208,19 @@ public:
     ~resistive_network() = default;
 
     fraction get_equivalent_resistance(int interface_id1, int interface_id2) {
+        if (interface_id1 == interface_id2) return fraction(0);
         // Inject 1A at id1, -1A at id2, ground node n (voltage at node n is 0)
         std::vector<fraction> I(interface_size, fraction(0));
         I[interface_id1 - 1] = I[interface_id1 - 1] + fraction(1);
         I[interface_id2 - 1] = I[interface_id2 - 1] - fraction(1);
-        // Remove last component
+        // Reduced current vector excludes ground (node n)
         std::vector<fraction> Ired(interface_size - 1);
         for (int i = 0; i < interface_size - 1; ++i) Ired[i] = I[i];
         std::vector<fraction> Ured = solve_linear(laplacian_red, Ired);
-        fraction ui = Ured[interface_id1 - 1];
+        fraction ui = (interface_id1 == interface_size) ? fraction(0) : Ured[interface_id1 - 1];
         fraction uj = (interface_id2 == interface_size) ? fraction(0) : Ured[interface_id2 - 1];
         fraction req = ui - uj; // since current is 1A
+        if (req == fraction(0)) return fraction(0);
         return req;
     }
 
