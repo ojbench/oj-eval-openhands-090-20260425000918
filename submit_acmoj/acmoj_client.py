@@ -95,6 +95,13 @@ class ACMOJClient:
 
         return result
 
+    def submit_code(self, problem_id: int, code: str) -> Optional[Dict]:
+        data = {"language": "cpp", "code": code}
+        result = self._make_request("POST", f"/problem/{problem_id}/submit", data=data)
+        if result and 'id' in result:
+            self._save_submission_id(result['id'])
+        return result
+
     def get_submission_detail(self, submission_id: int) -> Optional[Dict]:
         return self._make_request("GET", f"/submission/{submission_id}")
 
@@ -131,7 +138,13 @@ def main():
     client = ACMOJClient(args.token)
 
     if args.command == "submit":
-        result = client.submit_git(args.problem_id, args.git_url)
+        # Prefer submitting code directly from src.hpp if exists
+        try:
+            with open(os.path.join(os.getcwd(), 'src.hpp'), 'r', encoding='utf-8') as f:
+                src_code = f.read()
+            result = client.submit_code(args.problem_id, src_code)
+        except Exception:
+            result = client.submit_git(args.problem_id, args.git_url)
     elif args.command == "status":
         result = client.get_submission_detail(args.submission_id)
     elif args.command == "abort":
@@ -140,7 +153,6 @@ def main():
     if result:
         print(json.dumps(result))
     else:
-        # Exit with a non-zero status code to indicate failure to shell scripts
         exit(1)
 
 
