@@ -12,3 +12,5 @@ test_local.cpp
 
 # Provided headers (not needed in repo)
 fraction.hpp
+
+# Keep repo clean
